@@ -6,8 +6,6 @@ st.set_page_config(
     layout="wide"
 )
 
-st.markdown(
-    r"""
 # 🎮 Blackjack Monte Carlo Simulator
 
 Web app interattiva per simulare strategie di Blackjack usando il metodo Monte Carlo.
