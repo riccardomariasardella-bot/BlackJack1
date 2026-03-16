@@ -15,6 +15,19 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown("""
+<style>
+div[data-testid="stMetricValue"] {
+    font-size: 2rem !important;
+    font-weight: 700 !important;
+}
+div[data-testid="stMetricLabel"] {
+    font-size: 1rem !important;
+    font-weight: 600 !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ============================================================
 # CONFIGURAZIONE
 # ============================================================
@@ -233,12 +246,18 @@ def get_card_suit(rank: str) -> str:
     return suit_map.get(rank, "♠")
 
 
-def load_font(size: int):
-    candidates = [
-        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
+def load_font(size: int, bold: bool = False):
+    bold_candidates = [
         "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
+        "/usr/share/fonts/truetype/liberation2/LiberationSans-Bold.ttf",
+    ]
+    regular_candidates = [
+        "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
         "/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf",
     ]
+
+    candidates = bold_candidates + regular_candidates if bold else regular_candidates + bold_candidates
+
     for path in candidates:
         try:
             return ImageFont.truetype(path, size)
@@ -247,33 +266,96 @@ def load_font(size: int):
     return ImageFont.load_default()
 
 
-def draw_card_image(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int, rank: str, hidden: bool = False):
+def draw_centered_text(draw, xy, text, font, fill):
+    bbox = draw.textbbox((0, 0), text, font=font)
+    w = bbox[2] - bbox[0]
+    h = bbox[3] - bbox[1]
+    x, y = xy
+    draw.text((x - w / 2, y - h / 2), text, font=font, fill=fill)
+
+
+def draw_info_panel(draw, x1, y1, x2, y2, title, value=None):
+    draw.rounded_rectangle(
+        (x1, y1, x2, y2),
+        radius=20,
+        fill="#0f2f1f",
+        outline="#d6c48a",
+        width=3
+    )
+    title_font = load_font(28, bold=True)
+    value_font = load_font(24, bold=False)
+
+    draw.text((x1 + 18, y1 + 12), title, fill="#f6f1d3", font=title_font)
+    if value is not None:
+        draw.text((x1 + 18, y1 + 54), value, fill="white", font=value_font)
+
+
+def draw_card_back(draw: ImageDraw.ImageDraw, x: int, y: int, w: int, h: int):
+    draw.rounded_rectangle(
+        (x, y, x + w, y + h),
+        radius=18,
+        fill="#163b8c",
+        outline="white",
+        width=4
+    )
+
+    draw.rounded_rectangle(
+        (x + 8, y + 8, x + w - 8, y + h - 8),
+        radius=14,
+        outline="#93c5fd",
+        width=2
+    )
+
+    for i in range(x + 18, x + w - 18, 16):
+        draw.line((i, y + 16, i, y + h - 16), fill="#60a5fa", width=1)
+    for j in range(y + 16, y + h - 16, 16):
+        draw.line((x + 16, j, x + w - 16, j), fill="#93c5fd", width=1)
+
+    center_font = load_font(34, bold=True)
+    draw_centered_text(draw, (x + w / 2, y + h / 2), "♠ ♥ ♣ ♦", center_font, "#dbeafe")
+
+
+def draw_card_image(
+    draw: ImageDraw.ImageDraw,
+    x: int,
+    y: int,
+    w: int,
+    h: int,
+    rank: str,
+    hidden: bool = False
+):
     if hidden:
-        draw.rounded_rectangle((x, y, x + w, y + h), radius=14, fill="#1e3a8a", outline="white", width=3)
-        for i in range(x + 10, x + w - 10, 12):
-            draw.line((i, y + 10, i, y + h - 10), fill="#93c5fd", width=1)
-        for j in range(y + 10, y + h - 10, 12):
-            draw.line((x + 10, j, x + w - 10, j), fill="#60a5fa", width=1)
+        draw_card_back(draw, x, y, w, h)
         return
 
-    draw.rounded_rectangle((x, y, x + w, y + h), radius=14, fill="white", outline="#d1d5db", width=3)
+    draw.rounded_rectangle(
+        (x, y, x + w, y + h),
+        radius=18,
+        fill="#ffffff",
+        outline="#1f2937",
+        width=4
+    )
 
-    color = "#c62828" if get_card_color(rank) == "red" else "#111111"
+    color = "#c81e1e" if get_card_color(rank) == "red" else "#111111"
     suit = get_card_suit(rank)
 
-    small_font = load_font(26)
-    center_font = load_font(48)
+    rank_font = load_font(34, bold=True)
+    suit_small_font = load_font(28, bold=True)
+    suit_center_font = load_font(72, bold=True)
 
-    draw.text((x + 12, y + 10), f"{rank}", fill=color, font=small_font)
-    draw.text((x + 14, y + 42), suit, fill=color, font=small_font)
+    draw.text((x + 14, y + 10), rank, fill=color, font=rank_font)
+    draw.text((x + 18, y + 48), suit, fill=color, font=suit_small_font)
 
-    bbox = draw.textbbox((0, 0), suit, font=center_font)
-    sw = bbox[2] - bbox[0]
-    sh = bbox[3] - bbox[1]
-    draw.text((x + (w - sw) / 2, y + (h - sh) / 2 - 10), suit, fill=color, font=center_font)
+    draw_centered_text(draw, (x + w / 2, y + h / 2 + 2), suit, suit_center_font, color)
 
-    draw.text((x + w - 30, y + h - 54), suit, fill=color, font=small_font)
-    draw.text((x + w - 40, y + h - 26), f"{rank}", fill=color, font=small_font)
+    rb_rank = draw.textbbox((0, 0), rank, font=rank_font)
+    rb_suit = draw.textbbox((0, 0), suit, font=suit_small_font)
+
+    rank_w = rb_rank[2] - rb_rank[0]
+    suit_w = rb_suit[2] - rb_suit[0]
+
+    draw.text((x + w - rank_w - 14, y + h - 92), rank, fill=color, font=rank_font)
+    draw.text((x + w - suit_w - 18, y + h - 52), suit, fill=color, font=suit_small_font)
 
 
 def build_blackjack_table_image(
@@ -285,41 +367,47 @@ def build_blackjack_table_image(
     result_text: str,
     payout_units: float,
 ):
-    width, height = 1500, 900
-    img = Image.new("RGB", (width, height), "#0b3d1f")
+    width, height = 1900, 1100
+    img = Image.new("RGB", (width, height), "#0a341d")
     draw = ImageDraw.Draw(img)
 
-    title_font = load_font(42)
-    label_font = load_font(34)
-    text_font = load_font(26)
-    small_font = load_font(21)
+    title_font = load_font(52, bold=True)
+    label_font = load_font(38, bold=True)
+    text_font = load_font(30, bold=True)
+    small_font = load_font(24, bold=False)
 
-    # Tavolo
     draw.rounded_rectangle(
-        (25, 25, width - 25, height - 25),
-        radius=55,
+        (28, 28, width - 28, height - 28),
+        radius=60,
         fill="#146c3b",
-        outline="#6b3f1d",
-        width=16
+        outline="#7a4a22",
+        width=18
     )
-    draw.arc((140, 110, width - 140, height - 110), start=200, end=340, fill="#d6c48a", width=6)
+    draw.arc(
+        (180, 120, width - 180, height - 120),
+        start=200,
+        end=340,
+        fill="#e8d9a8",
+        width=7
+    )
 
-    # Titolo
     title = "BLACKJACK TABLE"
-    tb = draw.textbbox((0, 0), title, font=title_font)
-    draw.text(((width - (tb[2] - tb[0])) / 2, 40), title, fill="#f3e6b3", font=title_font)
+    draw_centered_text(draw, (width / 2, 62), title, title_font, "#f8edc2")
 
-    # Info tavolo
-    info = f"Bankroll: € {bankroll:,.2f}    Puntata: € {player_bet:.2f}"
-    draw.text((55, 105), info, fill="white", font=text_font)
+    draw_info_panel(draw, 60, 95, 420, 190, "Bankroll", f"€ {bankroll:,.2f}")
+    draw_info_panel(draw, 450, 95, 760, 190, "Puntata", f"€ {player_bet:.2f}")
 
-    # ZONA BANCO
-    draw.text((100, 185), "Banco", fill="white", font=label_font)
+    draw.rounded_rectangle((70, 225, 280, 280), radius=18, fill="#0f2f1f", outline="#d6c48a", width=3)
+    draw.text((95, 237), "BANCO", fill="white", font=label_font)
 
-    dealer_card_y = 170
-    dealer_card_x = 470   # spostato più a destra
-    card_w, card_h = 110, 160
-    card_gap = 130
+    draw.rounded_rectangle((70, 700, 320, 755), radius=18, fill="#0f2f1f", outline="#d6c48a", width=3)
+    draw.text((95, 712), "GIOCATORE", fill="white", font=label_font)
+
+    card_w, card_h = 145, 210
+    card_gap = 168
+
+    dealer_card_y = 255
+    dealer_card_x = 560
 
     if dealer_cards:
         for i, c in enumerate(dealer_cards):
@@ -335,18 +423,15 @@ def build_blackjack_table_image(
 
         if round_over:
             dealer_total, _ = hand_total(dealer_cards)
-            draw.text((100, 235), f"Totale banco: {dealer_total}", fill="#eef7ee", font=text_font)
+            draw_info_panel(draw, 70, 320, 360, 415, "Totale banco", str(dealer_total))
         else:
             visible_total = CARD_VALUES[dealer_cards[0]] if dealer_cards[0] != "A" else 11
-            draw.text((100, 235), f"Carta visibile: {visible_total}", fill="#eef7ee", font=text_font)
+            draw_info_panel(draw, 70, 320, 400, 415, "Carta visibile", str(visible_total))
     else:
-        draw.text((dealer_card_x, 235), "Nessuna carta distribuita", fill="#eef7ee", font=text_font)
+        draw_info_panel(draw, 70, 320, 470, 415, "Banco", "Nessuna carta distribuita")
 
-    # ZONA GIOCATORE
-    draw.text((100, 560), "Giocatore", fill="white", font=label_font)
-
-    player_card_y = 545
-    player_card_x = 470   # spostato più a destra
+    player_card_y = 730
+    player_card_x = 560
 
     if player_cards:
         for i, c in enumerate(player_cards):
@@ -361,11 +446,10 @@ def build_blackjack_table_image(
             )
 
         player_total, _ = hand_total(player_cards)
-        draw.text((100, 615), f"Totale giocatore: {player_total}", fill="#eef7ee", font=text_font)
+        draw_info_panel(draw, 70, 795, 420, 890, "Totale giocatore", str(player_total))
     else:
-        draw.text((player_card_x, 615), "Premi Distribuisci per iniziare", fill="#eef7ee", font=text_font)
+        draw_info_panel(draw, 70, 795, 520, 890, "Giocatore", "Premi Distribuisci per iniziare")
 
-    # BANNER RISULTATO
     if result_text:
         if payout_units < 0:
             fill = "#7f1d1d"
@@ -377,14 +461,14 @@ def build_blackjack_table_image(
             fill = "#14532d"
             outline = "#22c55e"
 
-        bx1, by1, bx2, by2 = 980, 700, 1420, 790
-        draw.rounded_rectangle((bx1, by1, bx2, by2), radius=18, fill=fill, outline=outline, width=4)
+        bx1, by1, bx2, by2 = 1240, 790, 1810, 940
+        draw.rounded_rectangle((bx1, by1, bx2, by2), radius=22, fill=fill, outline=outline, width=5)
 
-        result_msg = f"Esito: {result_text}"
-        payout_msg = f"Payout unità: {payout_units:+.2f}"
+        result_font = load_font(34, bold=True)
+        payout_font = load_font(28, bold=True)
 
-        draw.text((bx1 + 20, by1 + 16), result_msg, fill="white", font=text_font)
-        draw.text((bx1 + 20, by1 + 48), payout_msg, fill="white", font=small_font)
+        draw.text((bx1 + 24, by1 + 24), f"Esito: {result_text}", fill="white", font=result_font)
+        draw.text((bx1 + 24, by1 + 78), f"Payout unità: {payout_units:+.2f}", fill="white", font=payout_font)
 
     return img
 
@@ -1536,7 +1620,7 @@ else:
             result_text=g.player_hand.result_text,
             payout_units=g.player_hand.payout_units,
         )
-        st.image(table_img, use_container_width=True)
+        st.image(table_img, caption=None, use_container_width=True)
 
         if g.message:
             st.caption(g.message)
