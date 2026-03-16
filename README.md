@@ -1,10 +1,3 @@
-import streamlit as st
-
-st.set_page_config(
-    page_title="Blackjack Monte Carlo",
-    page_icon="🎮",
-    layout="wide"
-)
 
 # 🎮 Blackjack Monte Carlo Simulator
 
